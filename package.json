@@ -1,0 +1,19 @@
+{
+  "name": "carrental",
+  "version": "1.0.0",
+  "description": "a car rental app using node_express_react_mongodb_aws_stripepayment",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "author": "Sujit Meshram",
+  "license": "ISC",
+  "dependencies": {
+    "colors": "^1.4.0",
+    "express": "^4.18.2",
+    "express-handlebars": "^6.0.7"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.20"
+  }
+}
