@@ -8,6 +8,7 @@ const session = require("express-session");
 const cookieParser = require("cookie-parser");
 const passport = require("passport");
 const bcrypt = require("bcryptjs");
+const formidable = require("formidable");
 
 //initialize app
 const app = express();
@@ -29,6 +30,21 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+//load helper
+const { requireLogin, ensureGuest } = require("./helpers/authHelper");
+
+//load passport
+require("./passport/local");
+require("./passport/facebook");
+
+//make user as global object to logged in after login
+app.use((req, res, next) => {
+  // req.user=> user from login
+  //and setting that user in local to stay logged in
+  res.locals.user = req.user || null;
+  next();
+});
+
 //load files
 const keys = require("./config/keys");
 
@@ -45,7 +61,16 @@ mongoose
   });
 
 //setup view engine
-app.engine("handlebars", exphbs.engine({ defaultLayout: "main" }));
+app.engine(
+  "handlebars",
+  exphbs.engine({
+    defaultLayout: "main",
+    runtimeOptions: {
+      allowProtoPropertiesByDefault: true,
+      allowedProtoMethodsByDefault: true,
+    },
+  })
+);
 app.set("view engine", "handlebars");
 
 //connect cliend side to serve css and js files
@@ -54,24 +79,24 @@ app.use(express.static("public"));
 const port = process.env.PORT || 3000;
 
 // handle home route
-app.get("/", (req, res) => {
+app.get("/", ensureGuest, (req, res) => {
   res.render("home");
 });
 
-app.get("/about", (req, res) => {
+app.get("/about", ensureGuest, (req, res) => {
   res.render("about", {
     title: "About",
   });
 });
 
-app.get("/contact", (req, res) => {
+app.get("/contact", requireLogin, (req, res) => {
   res.render("contact", {
     title: "Contact us",
   });
 });
 
 //save contact form data
-app.post("/contact", (req, res) => {
+app.post("/contact", requireLogin, (req, res) => {
   console.log(req.body);
   const newContact = {
     name: req.user._id,
@@ -86,13 +111,13 @@ app.post("/contact", (req, res) => {
   });
 });
 
-app.get("/signup", (req, res) => {
+app.get("/signup", ensureGuest, (req, res) => {
   res.render("signupForm", {
     title: "Register",
   });
 });
 
-app.post("/signup", (req, res) => {
+app.post("/signup", ensureGuest, (req, res) => {
   console.log(req.body);
   let errors = [];
   if (req.body.password !== req.body.password2) {
@@ -142,7 +167,13 @@ app.post("/signup", (req, res) => {
             throw err;
           }
           if (user) {
-            console.log("New User is created");
+            let success = [];
+            success.push({
+              text: "You successfully created an account. You can login now",
+            });
+            res.render("loginForm", {
+              success: success,
+            });
           }
         });
       }
@@ -150,8 +181,115 @@ app.post("/signup", (req, res) => {
   }
 });
 
-app.get("/displayLoginForm", (req, res) => {
-  res.render("loginForm");
+app.get("/displayLoginForm", ensureGuest, (req, res) => {
+  res.render("loginForm", {
+    title: "Login",
+  });
+});
+
+//passport authentication
+app.post(
+  "/login",
+  passport.authenticate("local", {
+    successRedirect: "/profile",
+    failureRedirect: "/loginErrors",
+  })
+);
+
+// for login with facebook button route
+app.get(
+  "/auth/facebook",
+  passport.authenticate("facebook", {
+    scope: ["email"],
+  })
+);
+
+// for facebook auth callback
+app.get(
+  "/auth/facebook/callback",
+  passport.authenticate("facebook", {
+    successRedirect: "/profile",
+    failureRedirect: "/",
+  })
+);
+
+//display profile
+app.get("/profile", requireLogin, (req, res) => {
+  User.findById({ _id: req.user._id }).then((user) => {
+    console.log(user);
+    user.online = true;
+    user.save((err, user) => {
+      if (err) {
+        throw err;
+      }
+
+      if (user) {
+        res.render("profile", {
+          user: user,
+          title: "Profile",
+        });
+      }
+    });
+  });
+});
+
+app.get("/loginErrors", (req, res) => {
+  let errors = [];
+  errors.push({ text: "User not found or Passwword Incorrent" });
+  res.render("loginForm", {
+    errors: errors,
+    title: "Error",
+  });
+});
+
+//lit a car route
+app.get("/listCar", requireLogin, (req, res) => {
+  res.render("listCar", {
+    title: "Listing",
+  });
+});
+
+app.post("/listCar", requireLogin, (req, res) => {
+  console.log(req.body);
+  res.render("listCar2", {
+    title: "Finish",
+  });
+});
+
+//receive image
+app.post("/uploadImage", (req, res) => {
+  const form = new formidable.IncomingForm();
+  form.on("file", (field, file) => {
+    console.log(file);
+  });
+  form.on("error", (err) => {
+    console.log(err);
+  });
+
+  form.on("end", () => {
+    console.log("Image received successfully");
+  });
+  form.parse(req);
+});
+
+//log user out
+app.get("/logout", (req, res) => {
+  // req.user._id logged in user
+  User.findById({ _id: req.user._id }).then((user) => {
+    user.online = false;
+    user.save((err, user) => {
+      if (err) {
+        throw err;
+      }
+
+      if (user) {
+        // request object have logout method
+
+        req.logout();
+        res.redirect("/");
+      }
+    });
+  });
 });
 
 app.listen(port, () => {
