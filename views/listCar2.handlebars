@@ -1,60 +1,38 @@
 <div class="row">
-
-  <div class="col-sm">
-
-  </div>
+  <div class="col-sm"></div>
 
   <div class="col-sm-5">
+    <form action="/listCar2" method="POST">
 
-    <form action="/listCar2" method="post">
+      <input type="hidden" name="carID" value="{{car._id}}">
 
       <div class="form-group">
         <label for="pricePerHour">Price per Hour</label>
-        <input
-          type="number"
-          name="pricePerHour"
-          id="pricePerHour"
-          class="form-control"
-        />
+        <input type="number" required name="pricePerHour" id="pricePerHour" class="form-control" />
       </div>
 
       <div class="form-group">
         <label for="pricePerWeek">Price per week</label>
-        <input
-          type="number"
-          name="pricePerWeek"
-          id="pricePerWeek"
-          class="form-control"
-        />
+        <input type="number" required name="pricePerWeek" id="pricePerWeek" class="form-control" />
       </div>
 
       <div class="form-group">
         <label for="location">Location</label>
-        <input
-          type="text"
-          name="location"
-          id="location"
-          class="form-control"
-          placeholder="street, city, state and zipcode"
-        />
+        <input type="text" name="location" required id="location" class="form-control"
+          placeholder="street, city, state and zipcode" />
       </div>
 
       <div class="form-group">
-        <button class="btn btn-info upload-btn" type="button">Choose Image</button>
-        <input
-          type="file"
-          name="image"
-          id="upload-input"
-          style="display:none"
-        />
-
+        <button class="btn btn-info upload-btn" type="button">
+          Choose Image
+        </button>
+        <input type="file" name="image" required id="upload-input" style="display:none" />
       </div>
 
       <div class="form-group">
         <button type="submit" class="btn btn-primary">List a car</button>
       </div>
     </form>
-
   </div>
 
   <div class="col-sm"></div>
@@ -62,23 +40,31 @@
 
 <script>
 
-  {{! fetchLocation using javascript }}
-  function fetchLocation(){ var location=document.getElementById('location');
-  var Autocomplete=new google.maps.places.Autocomplete(location); } //{{! jquey code }}
-  $(document).ready(function(){ $('.upload-btn').on('click',function(){
-  $('#upload-input').click() }) $('#upload-input').on('change',function(){ var
-  uploadInput=$('#upload-input') if(uploadInput.val()!=''){ var formData=new
-  FormData(); formData.append('image',uploadInput[0].files[0]) //make ajax
-  request to send image to database $.ajax({ url:'/uploadImage', type:'POST',
-  data:formData, processData:false, contentType:false, success:function(){
-  uploadInput.val('') } }) } }) })
+  //using jquery here
 
-</script>
+  $(document).ready(function () {
+    $(".upload-btn").on("click", function () {
+      $("#upload-input").click();
+    });
 
-{{! using google maps javascript API }}
-{{! fetchLocation is callback }}
-<script
-  async
-  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB8WcikAdU284uTB9VCcur0W8HUOmDRYas&libraries=places&callback=fetchLocation"
->
+    $("#upload-input").on("change", function () {
+
+      var uploadInput = $("#upload-input");
+      if (uploadInput.val() != "") {
+        var formData = new FormData();
+        formData.append("image", uploadInput[0].files[0]);
+
+        $.ajax({
+          url: "/uploadImage",
+          type: "POST",
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: function () {
+            uploadInput.val("");
+          },
+        });
+      }
+    });
+  });
 </script>

@@ -9,7 +9,8 @@ const cookieParser = require("cookie-parser");
 const passport = require("passport");
 const bcrypt = require("bcryptjs");
 const formidable = require("formidable");
-
+const socketIO = require("socket.io");
+const http = require("http");
 //initialize app
 const app = express();
 
@@ -32,6 +33,7 @@ app.use(passport.session());
 
 //load helper
 const { requireLogin, ensureGuest } = require("./helpers/authHelper");
+const { upload } = require("./helpers/aws");
 
 //load passport
 require("./passport/local");
@@ -51,6 +53,9 @@ const keys = require("./config/keys");
 //user collections
 const User = require("./models/user");
 const Contact = require("./models/contact");
+const Car = require("./models/car");
+const Chat = require("./models/chat");
+
 //connect to mongoDB
 mongoose
   .connect(keys.MongoDB, () => {
@@ -250,14 +255,59 @@ app.get("/listCar", requireLogin, (req, res) => {
 });
 
 app.post("/listCar", requireLogin, (req, res) => {
-  console.log(req.body);
-  res.render("listCar2", {
-    title: "Finish",
+  const newCar = {
+    owner: req.user._id,
+    make: req.body.make,
+    model: req.body.model,
+    year: req.body.year,
+    type: req.body.type,
+  };
+  new Car(newCar).save((err, car) => {
+    if (err) {
+      throw err;
+    }
+    if (car) {
+      res.render("listCar2", {
+        title: "Finish",
+        car: car,
+      });
+    }
   });
 });
 
+app.post("/listCar2", requireLogin, (req, res) => {
+  console.log(req.body.carID);
+  Car.findOne({ _id: req.body.carID, owner: req.user._id }).then((car) => {
+    car.pricePerHour = req.body.pricePerHour;
+    car.pricePerWeek = req.body.pricePerWeek;
+    car.location = req.body.location;
+    car.image = `https://sujit-car-rental-app.s3.us-east-2.amazonaws.com/${req.body.image}`;
+
+    car.save((err, car) => {
+      if (err) {
+        throw err;
+      }
+      if (car) {
+        res.redirect("/showCars");
+      }
+    });
+  });
+});
+
+app.get("/showCars", requireLogin, (req, res) => {
+  Car.find({})
+    .populate("owner")
+    .sort({ date: "desc" })
+    .then((cars) => {
+      res.render("showCars", {
+        cars: cars,
+      });
+    });
+});
+
 //receive image
-app.post("/uploadImage", (req, res) => {
+// upload.any() to upload for any extension
+app.post("/uploadImage", requireLogin, upload.any(), (req, res) => {
   const form = new formidable.IncomingForm();
   form.on("file", (field, file) => {
     console.log(file);
@@ -292,6 +342,33 @@ app.get("/logout", (req, res) => {
   });
 });
 
-app.listen(port, () => {
+app.get("/contactOwner/:id", (req, res) => {
+  User.findOne({ _id: req.params.id })
+    .then((owner) => {
+      res.render("profile", {
+        owner: owner,
+      });
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+});
+
+// socket connection
+const server = http.createServer(app);
+const io = socketIO(server);
+io.on("connection", (socket) => {
+  console.log("Connected to client");
+
+  // listen to disconnection
+  socket.on("disconnect", (socket) => {
+    console.log("Disocnnected from client");
+  });
+});
+
+server.listen(port, () => {
   console.log(`Server in running on port ${port}`.green);
 });
+
+// using google geocode api to fetch car location, latitude and longitude
+// geocoding : process of converting address like ('1600, hat parkway, mountain view, ca' into geographic coordinates like (latitude 37,4200 and longitude -122.0645))

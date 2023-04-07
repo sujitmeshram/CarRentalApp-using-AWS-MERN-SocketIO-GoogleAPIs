@@ -1,10 +1,8 @@
 const mongoose = require("mongoose");
 
-const Schema = mongoose.Schema;
-
-const carSchema = new Schema({
+const carSchema = new mongoose.Schema({
   owner: {
-    type: Schema.type.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: "User",
   },
 
@@ -27,6 +25,13 @@ const carSchema = new Schema({
   pricePerHour: {
     type: Number,
   },
+  image: [
+    {
+      imageUrl: {
+        type: String,
+      },
+    },
+  ],
   location: [
     {
       address: {
